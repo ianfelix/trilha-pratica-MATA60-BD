@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres
+    container_name: trilha_pratica_db
+    environment:
+      POSTGRES_DB: trilha_pratica
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+volumes:
+  postgres_data:
