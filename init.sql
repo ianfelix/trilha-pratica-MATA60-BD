@@ -1,45 +1,15 @@
+-- Primeiro as tabelas independentes (sem foreign keys)
 CREATE TABLE tbl_categoria (
-    cp_cod_categoria SERIAL PRIMARY KEY,
+    cp_cod_categoria INT PRIMARY KEY,
     nm_categoria VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE tbl_rfid (
-    cp_id_dispositivo SERIAL PRIMARY KEY,
+    cp_id_dispositivo BIGINT PRIMARY KEY,
     ind_venda_dispositivo BOOLEAN NOT NULL
 );
 
-CREATE TABLE tbl_estabelecimento (
-    cp_cod_estab SERIAL PRIMARY KEY,
-    nm_estab VARCHAR(60) NOT NULL,
-    cnpj_estab VARCHAR(60) NOT NULL,
-    localizacao_estab FLOAT[] NOT NULL,
-    endereco_estab VARCHAR(200) NOT NULL,
-    UF_estab CHAR(2) NOT NULL,
-    cidade_estab CHAR(5) NOT NULL,
-    telefone_estab VARCHAR(15)
-);
-
-CREATE TABLE tbl_funcionario (
-    cp_cod_func SERIAL PRIMARY KEY,
-    nm_func VARCHAR(200) NOT NULL,
-    cpf_func CHAR(11) NOT NULL,
-    funcao_func VARCHAR(40) NOT NULL,
-    dt_contratacao DATE,
-    email_func VARCHAR(100)
-);
-
-CREATE TABLE tbl_fornecedor (
-    cp_cod_forn SERIAL PRIMARY KEY,
-    cnpj_forn CHAR(14) NOT NULL,
-    localizacao_forn FLOAT[] NOT NULL,
-    endereco_forn VARCHAR(200) NOT NULL,
-    UF_forn CHAR(2) NOT NULL,
-    cidade_forn CHAR(5) NOT NULL,
-    telefone_forn VARCHAR(15),
-    email_forn VARCHAR(100)
-);
-
--- Depois as tabelas com dependências
+-- Depois a tabela que depende delas
 CREATE TABLE tbl_produto (
     cp_id_produto SERIAL PRIMARY KEY,
     nm_prod VARCHAR(60) NOT NULL,
@@ -47,13 +17,38 @@ CREATE TABLE tbl_produto (
     ce_rfid BIGINT NOT NULL,
     ce_categoria_principal BIGINT NOT NULL,
     ce_categoria_secundaria BIGINT,
-    dt_inclusao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ce_rfid) REFERENCES tbl_rfid(cp_id_dispositivo),
     FOREIGN KEY (ce_categoria_principal) REFERENCES tbl_categoria(cp_cod_categoria),
     FOREIGN KEY (ce_categoria_secundaria) REFERENCES tbl_categoria(cp_cod_categoria)
 );
 
--- Por fim as tabelas de relacionamento
+CREATE TABLE tbl_estabelecimento (
+    cp_cod_estab BIGINT PRIMARY KEY,
+    nm_estab VARCHAR(60) NOT NULL,
+    cnpj_estab VARCHAR(60) NOT NULL,
+    localizacao_estab FLOAT[8] NOT NULL,
+    endereco_estab VARCHAR(200) NOT NULL,
+    UF_estab CHAR(2) NOT NULL,
+    cidade_estab CHAR(5) NOT NULL
+);
+
+CREATE TABLE tbl_funcionario (
+    cp_cod_func BIGINT PRIMARY KEY,
+    nm_func VARCHAR(200) NOT NULL,
+    cpf_func CHAR(11) NOT NULL,
+    funcao_func VARCHAR(40) NOT NULL
+);
+
+CREATE TABLE tbl_fornecedor (
+    cp_cod_forn BIGINT PRIMARY KEY,
+    cnpj_forn CHAR(14) NOT NULL,
+    localizacao_forn FLOAT[8] NOT NULL,
+    endereco_forn VARCHAR(200) NOT NULL,
+    UF_forn CHAR(2) NOT NULL,
+    cidade_forn CHAR(5) NOT NULL
+);
+
+
 CREATE TABLE fornecer (
     idtbl_produto BIGINT,
     idtbl_fornecedor BIGINT,
@@ -81,24 +76,27 @@ CREATE TABLE repor (
     idtbl_funcionario BIGINT,
     idtbl_produto BIGINT,
     dt_reposicao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (idtbl_funcionario, idtbl_produto, dt_reposicao),
+    PRIMARY KEY (idtbl_funcionario, idtbl_produto),
     FOREIGN KEY (idtbl_funcionario) REFERENCES tbl_funcionario(cp_cod_func),
     FOREIGN KEY (idtbl_produto) REFERENCES tbl_produto(cp_id_produto)
 );
 
--- Funções auxiliares
+
+-- Função auxiliar para gerar CNPJ aleatório
 CREATE OR REPLACE FUNCTION random_cnpj() RETURNS char(14) AS $$
 BEGIN
     RETURN LPAD(FLOOR(RANDOM() * 99999999999999)::TEXT, 14, '0');
 END;
 $$ LANGUAGE plpgsql;
 
+-- Função para gerar CPF aleatório
 CREATE OR REPLACE FUNCTION random_cpf() RETURNS char(11) AS $$
 BEGIN
     RETURN LPAD(FLOOR(RANDOM() * 99999999999)::TEXT, 11, '0');
 END;
 $$ LANGUAGE plpgsql;
 
+-- Função para gerar EAN aleatório
 CREATE OR REPLACE FUNCTION random_ean() RETURNS char(12) AS $$
 BEGIN
     RETURN LPAD(FLOOR(RANDOM() * 999999999999)::TEXT, 12, '0');
@@ -107,7 +105,7 @@ $$ LANGUAGE plpgsql;
 
 -- Popular categorias (200 categorias)
 INSERT INTO tbl_categoria (cp_cod_categoria, nm_categoria)
-SELECT 
+SELECT
     s.id,
     CASE
         WHEN s.id <= 50 THEN 'Bebidas ' || s.id
@@ -119,10 +117,9 @@ FROM generate_series(1, 200) AS s(id);
 
 -- Popular RFIDs (200 RFIDs)
 INSERT INTO tbl_rfid (cp_id_dispositivo, ind_venda_dispositivo)
-SELECT 
-    s.id,
-    (random() > 0.5)
-FROM generate_series(1, 200) AS s(id);
+SELECT
+    generate_series(1, 200) as cp_id_dispositivo,
+    (random() > 0.5) as ind_venda_dispositivo;
 
 -- Popular estabelecimentos (200 estabelecimentos)
 INSERT INTO tbl_estabelecimento (cp_cod_estab, nm_estab, cnpj_estab, localizacao_estab, endereco_estab, UF_estab, cidade_estab)
@@ -203,4 +200,3 @@ FROM generate_series(1, 200);
 DROP FUNCTION IF EXISTS random_cnpj();
 DROP FUNCTION IF EXISTS random_cpf();
 DROP FUNCTION IF EXISTS random_ean();
-
