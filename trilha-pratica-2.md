@@ -1,6 +1,8 @@
+---
+
 # TRILHA PRÁTICA II
 
-## Discentes: Norma Oliveira do Espírito Santo e Ian Felix Santos de Jesus
+### Discentes: Norma Oliveira do Espírito Santo e Ian Felix Santos de Jesus
 
 ## Queries SQL
 
@@ -131,6 +133,7 @@ WHERE vd.quantidade > (
 );
 
 -- ... (mais 17 queries básicas)
+
 ```
 
 ### Queries Intermediárias (15)
@@ -300,6 +303,7 @@ JOIN tbl_categoria c ON p.ce_categoria_principal = c.cp_cod_categoria
 JOIN vender_distribuir vd ON p.cp_id_produto = vd.idtbl_produto
 JOIN tbl_estabelecimento e ON vd.idtbl_estabelecimento = e.cp_cod_estab
 GROUP BY f.nm_func, c.nm_categoria;
+
 ```
 
 ### Queries Avançadas (10)
@@ -506,47 +510,14 @@ JOIN fornecer f ON p.cp_id_produto = f.idtbl_produto
 GROUP BY c.nm_categoria, c.cp_cod_categoria
 HAVING COUNT(DISTINCT p.cp_id_produto) > 5
 ORDER BY margem_media DESC;
-```
 
-## Plano de Indexação
-
-### Índices Propostos
-
-1. Índices em chaves estrangeiras
-2. Índices em colunas frequentemente filtradas
-3. Índices compostos para queries comuns
-
-```sql
-CREATE INDEX idx_vender_distribuir_produto ON vender_distribuir(idtbl_produto);
-CREATE INDEX idx_vender_distribuir_estabelecimento ON vender_distribuir(idtbl_estabelecimento);
-CREATE INDEX idx_fornecer_produto ON fornecer(idtbl_produto);
-CREATE INDEX idx_fornecer_fornecedor ON fornecer(idtbl_fornecedor);
-CREATE INDEX idx_vender_distribuir_estoque ON vender_distribuir(quantidade, estoque_minimo);
-```
-
-## Plano de Tuning
-
-### Otimizações Propostas
-
-1. Particionamento de tabelas grandes
-2. Materialização de views comuns
-3. Ajustes em parâmetros do PostgreSQL
-
-```sql
--- Exemplo de view materializada
-CREATE MATERIALIZED VIEW mv_estoque_critico AS
-SELECT p.nm_prod, e.nm_estab, vd.quantidade, vd.estoque_minimo
-FROM tbl_produto p
-JOIN vender_distribuir vd ON p.cp_id_produto = vd.idtbl_produto
-JOIN tbl_estabelecimento e ON vd.idtbl_estabelecimento = e.cp_cod_estab
-WHERE vd.quantidade < vd.estoque_minimo;
 ```
 
 ## Análise de Desempenho
 
 ### 2. Configurações Iniciais (Baseline)
 
-#### 2.1 Tabela para Coleta de Dados
+### 2.1 Tabela para Coleta de Dados
 
 ```sql
 -- Criação das tabelas de baseline
@@ -594,7 +565,6 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
-
 
 -- Limpar dados existentes
 TRUNCATE TABLE baseline_results;
@@ -1214,7 +1184,6 @@ INSERT INTO queries_to_run (query_id, query_name, query_type, query_text) VALUES
     HAVING COUNT(DISTINCT p.cp_id_produto) > 10
 ) subq');
 
-
 -- Executar o teste
 SELECT run_performance_test();
 
@@ -1243,6 +1212,7 @@ SELECT
 FROM baseline_results
 GROUP BY query_id, query_name, query_type
 ORDER BY query_id;
+
 ```
 
 Execução de 45 queries, 50 vezes cada, com coleta de tempos:
@@ -1312,6 +1282,7 @@ CREATE INDEX idx_produto_categoria ON tbl_produto (ce_categoria_principal);
 CREATE INDEX idx_fornecer_fornecedor ON fornecer (idtbl_fornecedor);
 CREATE INDEX idx_repor_data_produto ON repor (dt_reposicao, idtbl_produto);
 CREATE INDEX idx_repor_func_data ON repor (idtbl_funcionario, dt_reposicao);
+
 ```
 
 ### 3.2 Coleta de Tempos de Execução
@@ -1372,21 +1343,10 @@ JOIN queries_to_run q ON r.query_id = q.query_id::text
 JOIN baseline_data b ON b.query_id = r.query_id
 GROUP BY r.query_id, q.query_name, q.query_type, b.avg_time_ms
 ORDER BY r.query_id::int;
+
 ```
 
-### 3.3. Resultados
-
 ### 3.3 Planilha de Melhoria de Desempenho (Speedup)
-
-[Tabela com comparativo e speedup será adicionada após execução]
-
-## 4. Plano de Tuning
-
-[Em desenvolvimento]
-
-## 3. Análise de Desempenho com Índices
-
-### 3.1 Planilha de Melhoria de Desempenho (Speedup)
 
 | Query ID | Nome                             | Tipo  | Média Original (ms) | Média com Índices (ms) | Speedup | Impacto      |
 | -------- | -------------------------------- | ----- | ------------------- | ---------------------- | ------- | ------------ |
@@ -1409,23 +1369,18 @@ ORDER BY r.query_id::int;
 | 1        | Produtos com Estoque Crítico     | basic | 0.84                | 0.94                   | 0.89    | ⬇️ Moderado  |
 | 10       | Volume por Fornecedor            | basic | 0.45                | 0.51                   | 0.89    | ⬇️ Moderado  |
 
-### 3.2 Análise dos Resultados
+### 3.4 Análise dos Resultados
 
 1. **Melhorias Significativas**:
-
    - Query 11: Melhoria de 106% (2.06x mais rápido)
    - Query 14: Melhoria de 36% (1.36x mais rápido)
    - Query 12: Melhoria de 30% (1.30x mais rápido)
    - Query 5: Melhoria de 27% (1.27x mais rápido)
-
 2. **Impactos Negativos**:
-
    - Query 1: Degradação de 11% (0.89x mais lento)
    - Query 10: Degradação de 11% (0.89x mais lento)
    - Nenhuma query teve degradação crítica (> 20%)
-
 3. **Efetividade dos Índices**:
-
    - `idx_vd_estoque`: Manteve efetividade para queries de estoque
    - `idx_produto_categoria`: Bom desempenho em queries de categorização
    - `idx_repor_func_data`: Melhorou significativamente queries de funcionários
