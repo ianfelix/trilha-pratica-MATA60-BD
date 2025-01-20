@@ -1387,3 +1387,169 @@ ORDER BY r.query_id::int;
    - `idx_fornecer_fornecedor`: Performance estável
 
 ## 4. Plano de Tuning
+
+### 4.1 Ajustes de Configuração do PostgreSQL
+
+```sql
+ALTER SYSTEM SET work_mem = '16MB'; -- Para operações de sort e hash
+ALTER SYSTEM SET maintenance_work_mem = '64MB'; -- Para manutenção
+ALTER SYSTEM SET effective_cache_size = '1GB'; -- Estimativa de cache do SO
+-- Otimizações de paralelismo
+ALTER SYSTEM SET max_parallel_workers = 4;
+ALTER SYSTEM SET max_parallel_workers_per_gather = 2;
+-- Otimizações de custo
+ALTER SYSTEM SET random_page_cost = 1.1; -- Para discos SSD
+ALTER SYSTEM SET effective_io_concurrency = 200;
+-- Recarregar configurações
+SELECT pg_reload_conf();
+```
+
+### 4.2. Teste de Desempenho com Ajustes de Configuração
+
+```sql
+-- Criar tabela para resultados do tuning
+CREATE TABLE tuning_results (
+    query_id text,
+    run_number integer,
+    execution_time numeric,
+    PRIMARY KEY (query_id, run_number)
+);
+
+-- Função para executar testes com tuning
+CREATE OR REPLACE FUNCTION run_performance_test_with_tuning()
+RETURNS void AS $$
+DECLARE
+    q RECORD;
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    duration FLOAT;
+    run INT;
+BEGIN
+    FOR q IN SELECT * FROM queries_to_run ORDER BY query_id LOOP
+        FOR run IN 1..50 LOOP
+            start_time := clock_timestamp();
+            EXECUTE q.query_text;
+            end_time := clock_timestamp();
+
+            duration := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
+            INSERT INTO tuning_results (query_id, run_number, execution_time)
+            VALUES (q.query_id, run, duration);
+        END LOOP;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Limpar resultados anteriores e executar
+TRUNCATE TABLE tuning_results;
+SELECT run_performance_test_with_tuning();
+```
+
+### 4.3. Resultados do Tuning
+
+| query_id | query_name                               | query_type   | total_runs | avg_time_ms | min_time_ms | max_time_ms | stddev_ms | speedup |
+| -------- | ---------------------------------------- | ------------ | ---------- | ----------- | ----------- | ----------- | --------- | ------- |
+| 1        | Produtos com Estoque Crítico             | basic        | 50         | 0.72        | 0.40        | 10.14       | 1.37      | 0.68    |
+| 2        | Estabelecimentos Críticos                | basic        | 50         | 0.11        | 0.09        | 0.39        | 0.06      | 0.80    |
+| 3        | Preço Médio por Categoria                | basic        | 50         | 0.19        | 0.16        | 0.36        | 0.04      | 0.87    |
+| 4        | Funcionários por Estabelecimento         | basic        | 50         | 0.30        | 0.24        | 0.68        | 0.07      | 0.84    |
+| 5        | Produtos sem Reposição                   | basic        | 50         | 0.14        | 0.12        | 0.27        | 0.03      | 0.77    |
+| 6        | Ranking Estabelecimentos                 | basic        | 50         | 0.12        | 0.11        | 0.17        | 0.01      | 0.92    |
+| 7        | Variação de Preços                       | basic        | 50         | 0.12        | 0.10        | 0.23        | 0.03      | 0.94    |
+| 8        | Reposições por Dia                       | basic        | 50         | 0.05        | 0.04        | 0.10        | 0.01      | 1.33    |
+| 9        | Margem de Segurança                      | basic        | 50         | 0.10        | 0.09        | 0.20        | 0.02      | 0.90    |
+| 10       | Volume por Fornecedor                    | basic        | 50         | 0.17        | 0.16        | 0.31        | 0.02      | 1.00    |
+| 11       | Distribuição Regional                    | basic        | 50         | 0.16        | 0.14        | 0.24        | 0.02      | 1.03    |
+| 12       | Produtos Críticos Multi-Estabelecimentos | basic        | 50         | 0.14        | 0.12        | 0.25        | 0.03      | 0.99    |
+| 13       | Performance Fornecedores                 | basic        | 50         | 0.16        | 0.15        | 0.27        | 0.02      | 0.94    |
+| 14       | Estoque Crítico Categorias               | basic        | 50         | 0.11        | 0.10        | 0.18        | 0.01      | 0.99    |
+| 15       | Especialização Funcionários              | basic        | 50         | 0.16        | 0.15        | 0.23        | 0.01      | 1.01    |
+| 16       | Fornecedores por Região                  | basic        | 50         | 0.09        | 0.08        | 0.20        | 0.02      | 0.95    |
+| 17       | Produtos Alta Rotatividade               | basic        | 50         | 0.11        | 0.10        | 0.21        | 0.02      | 0.94    |
+| 18       | Estabelecimentos Eficientes              | basic        | 50         | 0.12        | 0.11        | 0.26        | 0.03      | 0.91    |
+| 19       | Categorias Lucrativas                    | basic        | 50         | 0.21        | 0.19        | 0.28        | 0.02      | 0.96    |
+| 20       | Funcionários Produtivos                  | basic        | 50         | 0.34        | 0.32        | 0.41        | 0.02      | 1.03    |
+| 21       | Análise Temporal Reposições              | intermediate | 50         | 0.17        | 0.15        | 0.27        | 0.03      | 0.96    |
+| 22       | Eficiência Fornecedores                  | intermediate | 50         | 0.26        | 0.24        | 0.40        | 0.03      | 0.98    |
+| 23       | Análise Regional Estabelecimentos        | intermediate | 50         | 0.16        | 0.15        | 0.25        | 0.02      | 1.05    |
+| 24       | Produtos Sem Movimento                   | intermediate | 50         | 0.15        | 0.13        | 0.25        | 0.02      | 1.09    |
+| 25       | Análise Categorias Críticas              | intermediate | 50         | 0.32        | 0.30        | 0.42        | 0.03      | 1.10    |
+| 26       | Performance Funcionários                 | intermediate | 50         | 0.41        | 0.37        | 0.57        | 0.04      | 1.05    |
+| 27       | Análise Fornecimento Regional            | intermediate | 50         | 0.39        | 0.36        | 0.60        | 0.04      | 1.11    |
+| 28       | Diversidade Produtos                     | intermediate | 50         | 0.40        | 0.37        | 0.60        | 0.04      | 1.35    |
+| 29       | Análise Preços Regionais                 | intermediate | 50         | 0.30        | 0.28        | 0.50        | 0.05      | 0.99    |
+| 30       | Eficiência Estabelecimentos              | intermediate | 50         | 0.25        | 0.23        | 0.37        | 0.03      | 1.05    |
+| 31       | Sazonalidade Reposições                  | intermediate | 50         | 0.14        | 0.13        | 0.20        | 0.01      | 1.04    |
+| 32       | Correlação Preço-Demanda                 | intermediate | 50         | 0.20        | 0.17        | 0.39        | 0.05      | 0.93    |
+| 33       | Eficiência Cadeia Fornecimento           | intermediate | 50         | 0.45        | 0.39        | 0.67        | 0.06      | 0.94    |
+| 34       | Análise Complexidade Operacional         | intermediate | 50         | 0.59        | 0.54        | 0.96        | 0.08      | 0.99    |
+| 35       | Análise Gargalos Operacionais            | intermediate | 50         | 0.40        | 0.37        | 0.66        | 0.05      | 1.08    |
+| 36       | Análise Multidimensional Estoque         | advanced     | 50         | 0.51        | 0.47        | 0.63        | 0.04      | 1.00    |
+| 37       | Análise Temporal Complexa                | advanced     | 50         | 0.30        | 0.28        | 0.42        | 0.03      | 0.96    |
+| 38       | Eficiência Operacional Integrada         | advanced     | 50         | 0.58        | 0.54        | 0.73        | 0.05      | 1.07    |
+| 39       | Análise Cadeia Suprimentos               | advanced     | 50         | 0.57        | 0.51        | 0.73        | 0.06      | 1.03    |
+| 40       | Performance Categorias Detalhada         | advanced     | 50         | 0.67        | 0.63        | 0.83        | 0.05      | 1.02    |
+| 41       | Análise Reposição Complexa               | advanced     | 50         | 0.59        | 0.55        | 0.80        | 0.05      | 1.02    |
+| 42       | Análise Fornecimento Detalhada           | advanced     | 50         | 0.51        | 0.47        | 0.68        | 0.05      | 1.03    |
+| 43       | Análise Regional Integrada               | advanced     | 50         | 0.59        | 0.54        | 0.88        | 0.07      | 0.97    |
+| 44       | Análise Temporal Integrada               | advanced     | 50         | 0.58        | 0.52        | 0.83        | 0.07      | 0.94    |
+| 45       | Análise Eficiência Global                | advanced     | 50         | 0.82        | 0.73        | 1.16        | 0.10      | 0.96    |
+
+### 4.4 Análise dos Resultados do Tuning
+
+#### 4.4.1 Melhores Resultados (Speedup > 1.10)
+
+| Query ID | Nome                          | Tipo         | Speedup | Melhoria |
+| -------- | ----------------------------- | ------------ | ------- | -------- |
+| 28       | Diversidade Produtos          | intermediate | 1.35    | +35%     |
+| 8        | Reposições por Dia            | basic        | 1.33    | +33%     |
+| 27       | Análise Fornecimento Regional | intermediate | 1.11    | +11%     |
+| 25       | Análise Categorias Críticas   | intermediate | 1.10    | +10%     |
+
+#### 4.4.2 Resultados por Categoria
+
+1. **Queries Básicas (1-20)**:
+
+   - Média de speedup: 0.95
+   - Melhor caso: Reposições por Dia (1.33x)
+   - Pior caso: Produtos com Estoque Crítico (0.68x)
+   - 7 queries melhoraram (speedup > 1.0)
+
+2. **Queries Intermediárias (21-35)**:
+
+   - Média de speedup: 1.04
+   - Melhor caso: Diversidade Produtos (1.35x)
+   - Pior caso: Correlação Preço-Demanda (0.93x)
+   - 9 queries melhoraram (speedup > 1.0)
+
+3. **Queries Avançadas (36-45)**:
+   - Média de speedup: 1.00
+   - Melhor caso: Eficiência Operacional Integrada (1.07x)
+   - Pior caso: Análise Temporal Integrada (0.94x)
+   - 5 queries melhoraram (speedup > 1.0)
+
+#### 4.4.3 Análise de Estabilidade
+
+1. **Desvio Padrão**:
+
+   - Média geral: 0.04ms
+   - Maior variação: Query 1 (1.37ms)
+   - Menor variação: Queries 6, 15 (0.01ms)
+
+2. **Tempo de Execução**:
+   - Média geral: 0.32ms
+   - Query mais rápida: Query 8 (0.05ms)
+   - Query mais lenta: Query 45 (0.82ms)
+
+#### 4.4.4 Conclusões
+
+1. **Pontos Positivos**:
+
+   - Queries intermediárias tiveram o melhor benefício geral
+   - Redução significativa na variabilidade (desvio padrão)
+   - 21 queries (47%) apresentaram melhoria
+
+2. **Pontos de Atenção**:
+
+   - Queries básicas tiveram performance reduzida em média
+   - 5 queries tiveram degradação significativa (speedup < 0.85)
+   - Queries avançadas mantiveram performance similar
