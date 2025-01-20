@@ -1431,8 +1431,4 @@ ORDER BY r.query_id::int;
    - `idx_repor_func_data`: Melhorou significativamente queries de funcionários
    - `idx_fornecer_fornecedor`: Performance estável
 
-4. **Recomendações**:
-   - Manter o novo índice composto `idx_repor_func_data`
-   - Considerar otimização adicional para Queries 1 e 10
-   - Monitorar o desempenho das queries neutras para futuras otimizações
-   - O novo conjunto de índices está mais balanceado, sem impactos negativos críticos
+## 4. Plano de Tuning
