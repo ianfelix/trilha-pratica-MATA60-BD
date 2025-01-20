@@ -1,14 +1,12 @@
+---
 # TRILHA PRÁTICA I
 
 ## Discentes: Norma Oliveira do Espírito Santo e Ian Felix Santos de Jesus
-
-### Novas Informações
-
-Com o objetivo de ampliar a funcionalidade do banco de dados, incrementamos novas entidades e atributos que tornam as operações mais ágeis e garantem um maior nível de controle e organização sobre os dados armazenados.
-
 ---
 
 ## Novos Atributos
+
+Com o objetivo de ampliar a funcionalidade do banco de dados, incrementamos novas entidades e atributos que tornam as operações mais ágeis e garantem um maior nível de controle e organização sobre os dados armazenados.
 
 ### Adição da coluna `dt_inclusao` na tabela `tbl_produto`:
 
@@ -73,27 +71,15 @@ Com o objetivo de ampliar a funcionalidade do banco de dados, incrementamos nova
 
 ## Modelos Conceitual e Lógico
 
-![Modelo Conceitual](./modelo-conceitual.png)
-
-![Modelo Lógico](./modelo-logico.png)
-
 ---
+
+![image.png](./modelo-conceitual.png)
+
+![image.png](./modelo-logico.png)
 
 ## DDL do Banco de Dados
 
 ```sql
--- Tabelas principais
-CREATE TABLE tbl_produto (
-    cp_id_produto INT AUTO_INCREMENT PRIMARY KEY,
-    nm_prod VARCHAR(60) NOT NULL,
-    cd_ean_prod CHAR(12) NOT NULL,
-    ce_rfid BIGINT NOT NULL,
-    ce_categoria_principal BIGINT NOT NULL,
-    ce_categoria_secundaria BIGINT,
-    FOREIGN KEY (ce_rfid) REFERENCES tbl_rfid(cp_id_dispositivo),
-    FOREIGN KEY (ce_categoria_principal) REFERENCES tbl_categoria(cp_cod_categoria),
-    FOREIGN KEY (ce_categoria_secundaria) REFERENCES tbl_categoria(cp_cod_categoria)
-);
 
 CREATE TABLE tbl_categoria (
     cp_cod_categoria INT PRIMARY KEY,
@@ -103,6 +89,18 @@ CREATE TABLE tbl_categoria (
 CREATE TABLE tbl_rfid (
     cp_id_dispositivo BIGINT PRIMARY KEY,
     ind_venda_dispositivo BOOLEAN NOT NULL
+);
+
+CREATE TABLE tbl_produto (
+    cp_id_produto SERIAL PRIMARY KEY,
+    nm_prod VARCHAR(60) NOT NULL,
+    cd_ean_prod CHAR(12) NOT NULL,
+    ce_rfid BIGINT NOT NULL,
+    ce_categoria_principal BIGINT NOT NULL,
+    ce_categoria_secundaria BIGINT,
+    FOREIGN KEY (ce_rfid) REFERENCES tbl_rfid(cp_id_dispositivo),
+    FOREIGN KEY (ce_categoria_principal) REFERENCES tbl_categoria(cp_cod_categoria),
+    FOREIGN KEY (ce_categoria_secundaria) REFERENCES tbl_categoria(cp_cod_categoria)
 );
 
 CREATE TABLE tbl_estabelecimento (
@@ -131,7 +129,6 @@ CREATE TABLE tbl_fornecedor (
     cidade_forn CHAR(5) NOT NULL
 );
 
--- Tabelas de relacionamento
 CREATE TABLE fornecer (
     idtbl_produto BIGINT,
     idtbl_fornecedor BIGINT,
@@ -196,13 +193,14 @@ $$ LANGUAGE plpgsql;
 -- Popular categorias (200 categorias)
 INSERT INTO tbl_categoria (cp_cod_categoria, nm_categoria)
 SELECT
-    generate_series(1, 200),
+    s.id,
     CASE
-        WHEN generate_series <= 50 THEN 'Bebidas ' || generate_series
-        WHEN generate_series <= 100 THEN 'Congelados ' || generate_series
-        WHEN generate_series <= 150 THEN 'Mercearia ' || generate_series
-        ELSE 'Utilidades ' || generate_series
-    END;
+        WHEN s.id <= 50 THEN 'Bebidas ' || s.id
+        WHEN s.id <= 100 THEN 'Congelados ' || s.id
+        WHEN s.id <= 150 THEN 'Mercearia ' || s.id
+        ELSE 'Utilidades ' || s.id
+    END
+FROM generate_series(1, 200) AS s(id);
 
 -- Popular RFIDs (200 RFIDs)
 INSERT INTO tbl_rfid (cp_id_dispositivo, ind_venda_dispositivo)
@@ -213,44 +211,48 @@ SELECT
 -- Popular estabelecimentos (200 estabelecimentos)
 INSERT INTO tbl_estabelecimento (cp_cod_estab, nm_estab, cnpj_estab, localizacao_estab, endereco_estab, UF_estab, cidade_estab)
 SELECT
-    generate_series(1, 200),
+    s.id,
     CASE
-        WHEN generate_series <= 150 THEN 'Loja ' || generate_series
-        ELSE 'Depósito ' || (generate_series - 150)
+        WHEN s.id <= 150 THEN 'Loja ' || s.id
+        ELSE 'Depósito ' || (s.id - 150)
     END,
     random_cnpj(),
     ARRAY[random(), random(), random(), random(), random(), random(), random(), random()],
     'Rua ' || chr(floor(65 + random() * 26)::int) || ', ' || floor(random() * 1000)::int,
     (ARRAY['SP','RJ','MG','BA','RS','SC','PR','PE','CE','AM'])[floor(random() * 10 + 1)],
-    LPAD(floor(random() * 99999)::TEXT, 5, '0');
+    LPAD(floor(random() * 99999)::TEXT, 5, '0')
+FROM generate_series(1, 200) AS s(id);
 
 -- Popular funcionários (200 funcionários)
 INSERT INTO tbl_funcionario (cp_cod_func, nm_func, cpf_func, funcao_func)
 SELECT
-    generate_series(1, 200),
-    'Funcionário ' || generate_series,
+    s.id,
+    'Funcionário ' || s.id,
     random_cpf(),
-    (ARRAY['Repositor','Supervisor','Gerente','Auxiliar','Coordenador','Analista','Operador'])[floor(random() * 7 + 1)];
+    (ARRAY['Repositor','Supervisor','Gerente','Auxiliar','Coordenador','Analista','Operador'])[floor(random() * 7 + 1)]
+FROM generate_series(1, 200) AS s(id);
 
 -- Popular fornecedores (200 fornecedores)
 INSERT INTO tbl_fornecedor (cp_cod_forn, cnpj_forn, localizacao_forn, endereco_forn, UF_forn, cidade_forn)
 SELECT
-    generate_series(1, 200),
+    s.id,
     random_cnpj(),
     ARRAY[random(), random(), random(), random(), random(), random(), random(), random()],
     'Rua ' || chr(floor(65 + random() * 26)::int) || ', ' || floor(random() * 1000)::int,
     (ARRAY['SP','RJ','MG','BA','RS','SC','PR','PE','CE','AM'])[floor(random() * 10 + 1)],
-    LPAD(floor(random() * 99999)::TEXT, 5, '0');
+    LPAD(floor(random() * 99999)::TEXT, 5, '0')
+FROM generate_series(1, 200) AS s(id);
 
 -- Popular produtos (200 produtos)
 INSERT INTO tbl_produto (cp_id_produto, nm_prod, cd_ean_prod, ce_rfid, ce_categoria_principal, ce_categoria_secundaria)
 SELECT
-    generate_series(1, 200),
-    'Produto ' || generate_series,
+    s.id,
+    'Produto ' || s.id,
     random_ean(),
-    generate_series,
+    s.id,
     floor(random() * 200 + 1),
-    CASE WHEN random() > 0.5 THEN floor(random() * 200 + 1) ELSE NULL END;
+    CASE WHEN random() > 0.5 THEN floor(random() * 200 + 1) ELSE NULL END
+FROM generate_series(1, 200) AS s(id);
 
 -- Popular fornecer (200 registros)
 INSERT INTO fornecer (idtbl_produto, idtbl_fornecedor, preco_venda, dt_venda, dt_compra, preco_compra)
